@@ -235,7 +235,8 @@ body { background: var(--canvas); color: var(--ink); font-family: 'Inter', sans-
 
 <!-- ═══════════════════ JAVASCRIPT ═══════════════════ -->
 <script>
-const API_BASE = 'https://18.213.66.136:8000';
+// Proxy through Vercel serverless function (solves HTTPS→HTTP mixed content)
+const API_BASE = '';
 const PHASES = [
   { id: 1, name: 'Lead Gen', color: '#3b82f6' },
   { id: 2, name: 'Intake', color: '#8b5cf6' },
@@ -408,7 +409,7 @@ async function sendMessage() {
 
   try {
     const isCEO = selectedAgent.id === 'ceo';
-    const url = isCEO ? `${API_BASE}/api/ceo/chat` : `${API_BASE}/api/agents/${selectedAgent.id}/chat`;
+    const url = isCEO ? `/api/ceo/chat` : `/api/agents/${selectedAgent.id}/chat`;
     const resp = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:text}) });
     const data = await resp.json();
     const reply = data.response || data.reply || data.message || (data.data?.content) || "Got it! I've handled that.";
@@ -457,7 +458,7 @@ function filterAgents() { renderAgents(); }
 // Fetch stats
 async function fetchStats() {
   try {
-    const resp = await fetch(`${API_BASE}/api/dashboard/stats`);
+    const resp = await fetch(`/api/dashboard/stats`);
     const d = await resp.json();
     const data = d.data || d;
     document.getElementById('statClients').textContent = data.active_clients || data.client_count || 0;
