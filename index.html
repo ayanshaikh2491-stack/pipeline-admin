@@ -455,22 +455,62 @@ function savePersonalize() {
 
 function filterAgents() { renderAgents(); }
 
-// Fetch stats
+// Fetch stats — multiple endpoints as fallback
 async function fetchStats() {
+  let connected = false;
+  let stats = {};
+  
+  // Try pipeline status first (always works)
   try {
-    const resp = await fetch(`/api/dashboard/stats`);
+    const resp = await fetch('/api/pipeline/status');
+    const d = await resp.json();
+    if(d.success && d.pipeline) {
+      const p = d.pipeline;
+      stats = {
+        total_leads: p.total_leads_found || 0,
+        active_clients: p.total_onboarded || 0,
+        total_builds: p.total_built || 0,
+        total_deliveries: p.total_delivered || 0,
+        total_revenue: 0,
+        pipeline_status: p.pipeline_active ? 'Active ('+p.cycles_run+' cycles)' : 'Inactive',
+      };
+      connected = true;
+    }
+  } catch(e) {}
+  
+  // Try stats endpoint (might 500 due to Supabase)
+  try {
+    const resp = await fetch('/api/dashboard/stats');
     const d = await resp.json();
     const data = d.data || d;
-    document.getElementById('statClients').textContent = data.active_clients || data.client_count || 0;
-    document.getElementById('statLeads').textContent = data.total_leads || 0;
-    document.getElementById('statBuilds').textContent = data.total_builds || 0;
-    document.getElementById('statDeliveries').textContent = data.total_deliveries || 0;
-    document.getElementById('statRevenue').textContent = '$' + (data.total_revenue || 0);
-    document.getElementById('statPipeline').textContent = 'Active';
+    if(data && Object.keys(data).length) {
+      stats = { ...stats, ...data };
+      connected = true;
+    }
+  } catch(e) {}
+  
+  // Try agent count
+  try {
+    const resp = await fetch('/api/agents');
+    const d = await resp.json();
+    if(d.data && d.data.length) {
+      document.getElementById('agentCount').textContent = d.data.length + ' Agents';
+      connected = true;
+    }
+  } catch(e) {}
+  
+  // Update UI
+  if(connected) {
+    document.getElementById('statClients').textContent = stats.active_clients || stats.client_count || (stats.total_onboarded || 0);
+    document.getElementById('statLeads').textContent = stats.total_leads || 0;
+    document.getElementById('statBuilds').textContent = stats.total_builds || stats.total_built || 0;
+    document.getElementById('statDeliveries').textContent = stats.total_deliveries || stats.total_delivered || 0;
+    document.getElementById('statRevenue').textContent = '$' + (stats.total_revenue || 0);
+    document.getElementById('statPipeline').textContent = stats.pipeline_status || 'Active';
     document.getElementById('statusBadge').className = 'connected';
     document.getElementById('statusBadge').innerHTML = '<span class="status-dot status-ok"></span> Backend Connected';
     document.getElementById('statusIcon').textContent = '🟢';
-  } catch(e) {
+  } else {
     document.getElementById('statPipeline').textContent = 'Offline';
     document.getElementById('statusBadge').className = 'disconnected';
     document.getElementById('statusBadge').innerHTML = '<span class="status-dot status-err"></span> Backend Offline';
