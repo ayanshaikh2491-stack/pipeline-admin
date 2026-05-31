@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline Admin — NexusAI Agency</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%236366f1'/><text x='16' y='22' text-anchor='middle' font-size='20' font-weight='bold' fill='white'>P</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Archivo+Narrow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --canvas: #0b0b10;
+  --surface1: #131318;
+  --surface2: #1a1a22;
+  --surface3: #22222c;
+  --border: #2a2a36;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --ink: #e4e4ec;
+  --ink-muted: #9a9aa8;
+  --ink-subtle: #62626e;
+  --green: #10b981;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  --blue: #3b82f6;
+  --purple: #8b5cf6;
+  --teal: #06b6d4;
+  --pink: #ec4899;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--canvas); color: var(--ink); font-family: 'Inter', sans-serif; min-height: 100vh; font-size: 14px; -webkit-font-smoothing: antialiased; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.arch { font-family: 'Archivo Narrow', sans-serif; }
+
+/* Layout */
+.app { display: flex; flex-direction: column; height: 100vh; }
+.header { background: var(--surface1); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 30; }
+.header-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; }
+.header-title { display: flex; align-items: center; gap: 12px; }
+.header-title h1 { font-size: 20px; font-weight: 800; font-family: 'Archivo Narrow', sans-serif; letter-spacing: -0.5px; }
+.header-title p { font-size: 10px; color: var(--ink-subtle); margin-top: 1px; }
+.header-right { display: flex; align-items: center; gap: 16px; font-size: 12px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.status-ok { background: var(--green); box-shadow: 0 0 6px rgba(16,185,129,0.4); }
+.status-err { background: var(--red); }
+.connected { color: var(--green); }
+.disconnected { color: var(--red); }
+
+/* Stats */
+.stats-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; padding: 0 24px 12px; }
+.stat-card { background: var(--surface1); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+.stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-subtle); font-weight: 600; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.stat-icon { font-size: 16px; }
+.stat-value { font-size: 24px; font-weight: 800; font-family: 'Archivo Narrow', sans-serif; letter-spacing: -0.5px; }
+
+/* Main body */
+.main { display: flex; flex: 1; overflow: hidden; }
+
+/* Sidebar */
+.sidebar { width: 260px; min-width: 260px; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: var(--canvas); }
+.sidebar-search { padding: 12px; border-bottom: 1px solid var(--border); }
+.sidebar-search input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12px; color: var(--ink); outline: none; font-family: inherit; }
+.sidebar-search input::placeholder { color: var(--ink-subtle); }
+.sidebar-search input:focus { border-color: var(--accent); }
+.sidebar-list { flex: 1; overflow-y: auto; padding: 8px; }
+.phase-group { margin-bottom: 2px; }
+.phase-header { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; transition: opacity 0.2s; }
+.phase-header:hover { opacity: 0.8; }
+.phase-count { margin-left: auto; font-size: 10px; color: var(--ink-subtle); }
+.agent-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: all 0.15s; width: 100%; border: none; background: none; text-align: left; font-family: inherit; color: var(--ink-muted); }
+.agent-item:hover { background: var(--surface2); color: var(--ink); }
+.agent-item.active { background: var(--accent); color: white; }
+.agent-icon { font-size: 16px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--surface2); }
+.agent-item.active .agent-icon { background: rgba(255,255,255,0.15); }
+.agent-name { font-size: 12px; font-weight: 500; }
+.agent-cat { font-size: 10px; color: var(--ink-subtle); margin-top: 1px; }
+.agent-item.active .agent-cat { color: rgba(255,255,255,0.6); }
+.agent-info { flex: 1; min-width: 0; }
+.agent-info div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-footer { padding: 12px; border-top: 1px solid var(--border); font-size: 10px; color: var(--ink-subtle); display: flex; gap: 12px; }
+
+/* Chat */
+.chat-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.chat-header { display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 48px; border-bottom: 1px solid var(--border); }
+.chat-header-icon { font-size: 20px; }
+.chat-header-name { font-size: 13px; font-weight: 600; }
+.chat-header-desc { font-size: 10px; color: var(--ink-subtle); }
+.chat-header-right { margin-left: auto; display: flex; gap: 6px; }
+.btn-personalize { padding: 5px 12px; border-radius: 6px; border: none; font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: inherit; background: var(--surface3); color: var(--ink-muted); }
+.btn-personalize:hover { background: var(--accent); color: white; }
+.btn-personalize.active { background: var(--accent); color: white; }
+
+/* Messages */
+.messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.msg { display: flex; animation: fadeIn 0.25s ease-out; }
+.msg-user { justify-content: flex-end; }
+.msg-agent { justify-content: flex-start; }
+.msg-bubble { max-width: 80%; border-radius: 16px; padding: 10px 16px; }
+.msg-user .msg-bubble { background: var(--accent); color: white; }
+.msg-agent .msg-bubble { background: var(--surface2); border: 1px solid var(--border); }
+.msg-meta { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.msg-agent .msg-meta-name { font-size: 11px; font-weight: 500; color: var(--ink-muted); }
+.msg-user .msg-meta-name { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.8); }
+.msg-time { font-size: 9px; color: var(--ink-subtle); margin-left: auto; }
+.msg-user .msg-time { color: rgba(255,255,255,0.5); }
+.msg-text { font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+.typing { display: flex; align-items: center; gap: 8px; padding: 12px 16px; }
+.typing-dots { display: flex; gap: 4px; }
+.typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: bounce 1.4s ease-in-out infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,80%,100% { transform: scale(0.6); opacity: 0.3; } 40% { transform: scale(1); opacity: 1; } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Input */
+.chat-input { padding: 16px; border-top: 1px solid var(--border); background: var(--surface1); }
+.chat-input-row { display: flex; gap: 8px; }
+.chat-input-row input { flex: 1; background: var(--canvas); border: 1px solid var(--border); border-radius: 12px; padding: 10px 16px; font-size: 13px; color: var(--ink); outline: none; font-family: inherit; transition: border-color 0.2s; }
+.chat-input-row input:focus { border-color: var(--accent); }
+.chat-input-row input::placeholder { color: var(--ink-subtle); }
+.btn-send { padding: 10px 20px; border-radius: 12px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; background: var(--accent); color: white; }
+.btn-send:disabled { background: var(--surface3); color: var(--ink-subtle); cursor: not-allowed; }
+.btn-send:not(:disabled):hover { background: var(--accent-hover); }
+
+/* Personalization Panel */
+.personalize-panel { width: 320px; min-width: 320px; border-left: 1px solid var(--border); display: flex; flex-direction: column; }
+.pers-header { display: flex; align-items: center; justify-content: space-between; padding: 0 16px; height: 48px; border-bottom: 1px solid var(--border); }
+.pers-header h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-subtle); font-weight: 600; }
+.pers-close { background: none; border: none; color: var(--ink-subtle); cursor: pointer; font-size: 16px; padding: 4px; }
+.pers-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+.pers-field label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-subtle); font-weight: 600; margin-bottom: 6px; }
+.pers-field input, .pers-field textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; color: var(--ink); outline: none; font-family: inherit; resize: vertical; }
+.pers-field input:focus, .pers-field textarea:focus { border-color: var(--accent); }
+.pers-field textarea { min-height: 60px; }
+.btn-save-pers { padding: 10px; border-radius: 8px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; background: var(--accent); color: white; font-family: inherit; }
+.btn-save-pers:hover { background: var(--accent-hover); }
+.pers-note { font-size: 10px; color: var(--ink-subtle); padding: 8px; background: var(--surface2); border-radius: 6px; border: 1px solid var(--border); }
+
+/* Phase Badge */
+.phase-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 9px; font-weight: 600; white-space: nowrap; }
+
+/* Pipeline Flow Footer */
+.footer { background: var(--surface1); border-top: 1px solid var(--border); padding: 8px 24px; }
+.footer-phases { display: flex; align-items: center; gap: 8px; }
+.footer-phase { padding: 4px 12px; border-radius: 20px; font-size: 9px; font-weight: 600; white-space: nowrap; }
+.footer-arrow { width: 8px; height: 1px; background: var(--border); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ APP ═══════════════════ -->
+<div class="app" id="app">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-top">
+      <div class="header-title">
+        <span style="font-size:24px">⚡</span>
+        <div>
+          <h1>Pipeline Admin</h1>
+          <p>NexusAI Agency — Pipeline Operations</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <span id="statusBadge" class="disconnected"><span class="status-dot status-err"></span> Backend Offline</span>
+        <span id="agentCount" style="color:var(--ink-subtle)">15 Agents</span>
+      </div>
+    </div>
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card"><div class="stat-label">Clients <span class="stat-icon">👥</span></div><div class="stat-value" id="statClients" style="color:var(--blue)">-</div></div>
+      <div class="stat-card"><div class="stat-label">Leads <span class="stat-icon">🎯</span></div><div class="stat-value" id="statLeads" style="color:var(--purple)">-</div></div>
+      <div class="stat-card"><div class="stat-label">Builds <span class="stat-icon">📦</span></div><div class="stat-value" id="statBuilds" style="color:var(--green)">-</div></div>
+      <div class="stat-card"><div class="stat-label">Deliveries <span class="stat-icon">🚚</span></div><div class="stat-value" id="statDeliveries" style="color:var(--amber)">-</div></div>
+      <div class="stat-card"><div class="stat-label">Revenue <span class="stat-icon">💰</span></div><div class="stat-value" id="statRevenue" style="color:var(--teal)">-</div></div>
+      <div class="stat-card"><div class="stat-label">Pipeline <span class="stat-icon" id="statusIcon">🔴</span></div><div class="stat-value" id="statPipeline" style="color:var(--pink)">-</div></div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-search"><input type="text" id="searchInput" placeholder="Search agents..." oninput="filterAgents()"></div>
+      <div class="sidebar-list" id="agentList"></div>
+      <div class="sidebar-footer"><span id="onlineCount">0 online</span><span>•</span><span>15 agents</span></div>
+    </aside>
+
+    <!-- CHAT -->
+    <div class="chat-area" id="chatArea">
+      <div class="chat-header" id="chatHeader">
+        <span class="chat-header-icon" id="chatIcon">🔍</span>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="chat-header-name" id="chatName">OpenClaw</span>
+            <span class="status-dot status-ok"></span>
+            <span class="phase-badge" id="chatPhase" style="background:#3b82f620;color:#3b82f6;border:1px solid #3b82f630">Phase 1</span>
+          </div>
+          <div class="chat-header-desc" id="chatDesc">Leads dhunta hai — research, scraping, outreach</div>
+        </div>
+        <div class="chat-header-right">
+          <button class="btn-personalize" id="btnPersonalize" onclick="togglePersonalize()">⚙️ Personalize</button>
+        </div>
+      </div>
+      <div class="messages" id="messagesContainer"></div>
+      <div class="chat-input">
+        <div class="chat-input-row">
+          <input type="text" id="msgInput" placeholder="Message agent..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}">
+          <button class="btn-send" id="btnSend" onclick="sendMessage()" disabled>Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PERSONALIZE PANEL -->
+    <div class="personalize-panel" id="personalizePanel" style="display:none">
+      <div class="pers-header">
+        <h3>Personalize <span id="persAgentName" style="color:var(--accent)">Agent</span></h3>
+        <button class="pers-close" onclick="togglePersonalize()">✕</button>
+      </div>
+      <div class="pers-body">
+        <div class="pers-field"><label>Custom Name</label><input type="text" id="persName" placeholder="Agent name"></div>
+        <div class="pers-field"><label>Custom Description</label><textarea id="persDesc" rows="2" placeholder="Agent description"></textarea></div>
+        <div class="pers-field"><label>Welcome Prompt</label><textarea id="persPrompt" rows="4" placeholder="Custom welcome message..."></textarea></div>
+        <button class="btn-save-pers" onclick="savePersonalize()">Save Personalization</button>
+        <div class="pers-note">Saved in localStorage. Har session mein available.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-phases" id="footerPhases"></div>
+  </footer>
+</div>
+
+<!-- ═══════════════════ JAVASCRIPT ═══════════════════ -->
+<script>
+const API_BASE = 'https://18.213.66.136:8000';
+const PHASES = [
+  { id: 1, name: 'Lead Gen', color: '#3b82f6' },
+  { id: 2, name: 'Intake', color: '#8b5cf6' },
+  { id: 3, name: 'Build', color: '#10b981' },
+  { id: 4, name: 'QC', color: '#f59e0b' },
+  { id: 5, name: 'Delivery', color: '#06b6d4' },
+  { id: 6, name: 'Oversight', color: '#ec4899' },
+  { id: 10, name: 'CashClaw', color: '#14b8a6' },
+];
+const AGENTS = [
+  { id:'openclaw', name:'OpenClaw', icon:'🔍', cat:'Lead Gen', phase:1, color:'#3b82f6', desc:'Leads dhunta hai — research, scraping, outreach' },
+  { id:'lead-hunter-pro', name:'Lead Hunter Pro', icon:'🎯', cat:'Lead Gen', phase:1, color:'#3b82f6', desc:'Deep lead research aur qualification' },
+  { id:'hermes', name:'Hermes', icon:'💬', cat:'Intake', phase:2, color:'#8b5cf6', desc:'Clients onboard karta hai — proposals, check-ins' },
+  { id:'brand-strategist', name:'Brand Strategist', icon:'🧠', cat:'Intake', phase:2, color:'#8b5cf6', desc:'Brand voice, positioning, strategy' },
+  { id:'opencode', name:'OpenCode', icon:'💻', cat:'Build', phase:3, color:'#10b981', desc:'Build karta hai — code, automation, deliverables' },
+  { id:'content-writer', name:'Content Writer', icon:'✍️', cat:'Build', phase:3, color:'#10b981', desc:'Blog, captions, ad copy — sab likhta hai' },
+  { id:'email-wizard', name:'Email Wizard', icon:'📧', cat:'Build', phase:3, color:'#10b981', desc:'Email campaigns, sequences, automation' },
+  { id:'seo-master', name:'SEO Master', icon:'🔎', cat:'Build', phase:3, color:'#10b981', desc:'SEO audit, keywords, optimization' },
+  { id:'social-commander', name:'Social Commander', icon:'🌐', cat:'Build', phase:3, color:'#10b981', desc:'Social media, schedule, engage' },
+  { id:'creative-genius', name:'Creative Genius', icon:'✨', cat:'Build', phase:3, color:'#10b981', desc:'Design, visuals, creative assets' },
+  { id:'ads-manager', name:'Ads Manager', icon:'📢', cat:'Build', phase:3, color:'#10b981', desc:'Ad campaigns, budgets, optimization' },
+  { id:'quality-checker', name:'Quality Checker', icon:'✅', cat:'QC', phase:4, color:'#f59e0b', desc:'QA, review, quality control' },
+  { id:'analytics-pro', name:'Analytics Pro', icon:'📊', cat:'Delivery', phase:5, color:'#06b6d4', desc:'Reports, analytics, insights' },
+  { id:'agency-manager', name:'Agency Manager', icon:'🏢', cat:'Oversight', phase:6, color:'#ec4899', desc:'Full agency operations' },
+  { id:'cashclaw', name:'CashClaw', icon:'💰', cat:'Revenue', phase:10, color:'#14b8a6', desc:'ADMIN ONLY — Client finding engine' },
+];
+const WELCOMES = {
+  openclaw:"Hey, I'm OpenClaw! Main leads dhunta hun — research, scraping, outreach. Batao kis industry mein leads chahiye?",
+  hermes:"Hey, I'm Hermes! Main clients handle karta hun — onboarding, proposals, check-ins. Kya kaam hai?",
+  opencode:"Hey, I'm OpenCode! Main build karta hun — code, automation, sab kuch. Batao kya banana hai?",
+  cashclaw:"💰 CashClaw — ADMIN ONLY. Main clients dhunta hun, pipeline ke liye queue karta hun. Koi agent delegation nahi.",
+  leadhunterpro:"Deep lead research? Qualification? Main ready hun!",
+  brandstrategist:"Branding ka kaam hai? Voice, positioning, strategy — sab handle karta hun.",
+  contentwriter:"Content likhna hai? Blog, social captions, ad copy — sab batao.",
+  emailwizard:"Email campaigns? Sequences? Automation? Main ready hun!",
+  seomaster:"SEO ka kaam hai? Audit, keywords, optimization — sab handle karta hun.",
+  socialcommander:"Social media manage karna hai? Schedule, publish, engage — sab batao.",
+  creativegenius:"Design chahiye? Visuals, creative assets — batao kya banana hai!",
+  adsmanager:"Ads ka mamla hai? Campaigns, budgets, optimization — sab sambhalta hun.",
+  analyticspro:"Analytics chahiye? Reports, insights, data sab batao.",
+  agencymanager:"Agency operations? System status, workload, sab sambhalta hun.",
+  qualitychecker:"QA chahiye? Review, quality check — sab karta hun.",
+};
+// State
+let selectedAgent = AGENTS[0];
+let messages = [];
+let isLoading = false;
+let configs = {};
+let showPers = false;
+
+// Load configs
+try { const s = localStorage.getItem('pipeline_configs'); if(s) configs = JSON.parse(s); } catch(e) {}
+
+function getAgentName(a) { return configs[a.id]?.customName || a.name; }
+function getAgentDesc(a) { return configs[a.id]?.customDesc || a.desc; }
+function getWelcome(a) {
+  const c = configs[a.id]?.customPrompt;
+  if(c) return c;
+  return WELCOMES[a.id.replace(/-/g,'')] || `Hey, I'm ${a.name}! Batao kya kaam hai?`;
+}
+
+// Render
+function render() {
+  renderAgents();
+  renderChat();
+  renderPhases();
+}
+
+function renderAgents() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const container = document.getElementById('agentList');
+  container.innerHTML = '';
+  let online = 0;
+  PHASES.forEach(ph => {
+    const agents = AGENTS.filter(a => a.phase === ph.id && (!q || a.name.toLowerCase().includes(q) || a.desc.toLowerCase().includes(q) || a.cat.toLowerCase().includes(q)));
+    if(!agents.length) return;
+    const grp = document.createElement('div');
+    grp.className = 'phase-group';
+    grp.innerHTML = `<div class="phase-header" style="color:${ph.color}" onclick="togglePhase(${ph.id})">
+      <span id="phArrow${ph.id}">▾</span>${ph.name}<span class="phase-count">${agents.length}</span></div>`;
+    const list = document.createElement('div');
+    list.id = `phList${ph.id}`;
+    agents.forEach(a => {
+      online++;
+      const isActive = selectedAgent.id === a.id;
+      const btn = document.createElement('button');
+      btn.className = `agent-item${isActive?' active':''}`;
+      btn.innerHTML = `<div class="agent-icon">${a.icon}</div>
+        <div class="agent-info"><div class="agent-name">${getAgentName(a)}</div>
+        <div class="agent-cat">${a.cat}</div></div>`;
+      btn.onclick = () => selectAgent(a);
+      list.appendChild(btn);
+    });
+    grp.appendChild(list);
+    container.appendChild(grp);
+  });
+  document.getElementById('onlineCount').textContent = online + ' online';
+}
+
+function togglePhase(id) {
+  const list = document.getElementById('phList'+id);
+  const arrow = document.getElementById('phArrow'+id);
+  if(!list || !arrow) return;
+  const hidden = list.style.display === 'none';
+  list.style.display = hidden ? '' : 'none';
+  arrow.textContent = hidden ? '▾' : '▸';
+}
+
+function renderPhases() {
+  const f = document.getElementById('footerPhases');
+  f.innerHTML = PHASES.map((p,i) => {
+    const count = AGENTS.filter(a => a.phase === p.id).length;
+    return `<span class="footer-phase" style="background:${p.color}15;color:${p.color};border:1px solid ${p.color}25">${p.name} (${count})</span>${i<PHASES.length-1?'<span class="footer-arrow"></span>':''}`;
+  }).join('');
+}
+
+function selectAgent(a) {
+  selectedAgent = a;
+  document.getElementById('chatIcon').textContent = a.icon;
+  document.getElementById('chatName').textContent = getAgentName(a);
+  document.getElementById('chatDesc').textContent = getAgentDesc(a);
+  const ph = PHASES.find(p => p.id === a.phase);
+  document.getElementById('chatPhase').style.cssText = `background:${ph.color}20;color:${ph.color};border:1px solid ${ph.color}30`;
+  document.getElementById('chatPhase').textContent = 'Phase '+a.phase;
+  // Reset messages
+  messages = [{ id:'welcome', role:'agent', text:getWelcome(a), time:new Date() }];
+  renderMessages();
+  renderAgents();
+  if(showPers) {
+    document.getElementById('persAgentName').textContent = getAgentName(a);
+    const cfg = configs[a.id] || {};
+    document.getElementById('persName').value = cfg.customName || '';
+    document.getElementById('persDesc').value = cfg.customDesc || '';
+    document.getElementById('persPrompt').value = cfg.customPrompt || '';
+  }
+}
+
+function renderMessages() {
+  const c = document.getElementById('messagesContainer');
+  c.innerHTML = messages.map(m => {
+    const isAgent = m.role === 'agent';
+    return `<div class="msg ${isAgent?'msg-agent':'msg-user'}">
+      <div class="msg-bubble">
+        <div class="msg-meta">
+          <span class="msg-meta-name">${isAgent?selectedAgent.icon+' '+getAgentName(selectedAgent):'👤 You'}</span>
+          <span class="msg-time">${m.time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
+        </div>
+        <div class="msg-text">${m.text}</div>
+      </div>
+    </div>`;
+  }).join('');
+  if(isLoading) {
+    c.insertAdjacentHTML('beforeend', `<div class="msg msg-agent"><div class="msg-bubble"><div class="typing">
+      <div class="typing-dots"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>
+      <span style="font-size:12px;color:var(--ink-subtle)">Thinking...</span>
+    </div></div></div>`);
+  }
+  c.scrollTop = c.scrollHeight;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('msgInput');
+  const text = input.value.trim();
+  if(!text || isLoading) return;
+  input.value = '';
+  messages.push({ id:Date.now().toString(), role:'user', text, time:new Date() });
+  isLoading = true;
+  document.getElementById('btnSend').disabled = true;
+  renderMessages();
+
+  try {
+    const isCEO = selectedAgent.id === 'ceo';
+    const url = isCEO ? `${API_BASE}/api/ceo/chat` : `${API_BASE}/api/agents/${selectedAgent.id}/chat`;
+    const resp = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:text}) });
+    const data = await resp.json();
+    const reply = data.response || data.reply || data.message || (data.data?.content) || "Got it! I've handled that.";
+    messages.push({ id:(Date.now()+1).toString(), role:'agent', text:reply, time:new Date() });
+  } catch(e) {
+    messages.push({ id:(Date.now()+1).toString(), role:'agent', text:"⚠️ Server se connect nahi ho paya. Backend check karo.", time:new Date() });
+  }
+  isLoading = false;
+  document.getElementById('btnSend').disabled = false;
+  renderMessages();
+}
+
+// Input handler
+document.getElementById('msgInput').addEventListener('input', function() {
+  document.getElementById('btnSend').disabled = !this.value.trim() || isLoading;
+});
+
+function togglePersonalize() {
+  showPers = !showPers;
+  document.getElementById('personalizePanel').style.display = showPers ? '' : 'none';
+  document.getElementById('btnPersonalize').classList.toggle('active', showPers);
+  if(showPers) {
+    document.getElementById('persAgentName').textContent = getAgentName(selectedAgent);
+    const cfg = configs[selectedAgent.id] || {};
+    document.getElementById('persName').value = cfg.customName || '';
+    document.getElementById('persDesc').value = cfg.customDesc || '';
+    document.getElementById('persPrompt').value = cfg.customPrompt || '';
+  }
+}
+
+function savePersonalize() {
+  configs[selectedAgent.id] = {
+    customName: document.getElementById('persName').value,
+    customDesc: document.getElementById('persDesc').value,
+    customPrompt: document.getElementById('persPrompt').value,
+  };
+  localStorage.setItem('pipeline_configs', JSON.stringify(configs));
+  selectAgent(selectedAgent);
+  showPers = false;
+  document.getElementById('personalizePanel').style.display = 'none';
+  document.getElementById('btnPersonalize').classList.remove('active');
+}
+
+function filterAgents() { renderAgents(); }
+
+// Fetch stats
+async function fetchStats() {
+  try {
+    const resp = await fetch(`${API_BASE}/api/dashboard/stats`);
+    const d = await resp.json();
+    const data = d.data || d;
+    document.getElementById('statClients').textContent = data.active_clients || data.client_count || 0;
+    document.getElementById('statLeads').textContent = data.total_leads || 0;
+    document.getElementById('statBuilds').textContent = data.total_builds || 0;
+    document.getElementById('statDeliveries').textContent = data.total_deliveries || 0;
+    document.getElementById('statRevenue').textContent = '$' + (data.total_revenue || 0);
+    document.getElementById('statPipeline').textContent = 'Active';
+    document.getElementById('statusBadge').className = 'connected';
+    document.getElementById('statusBadge').innerHTML = '<span class="status-dot status-ok"></span> Backend Connected';
+    document.getElementById('statusIcon').textContent = '🟢';
+  } catch(e) {
+    document.getElementById('statPipeline').textContent = 'Offline';
+    document.getElementById('statusBadge').className = 'disconnected';
+    document.getElementById('statusBadge').innerHTML = '<span class="status-dot status-err"></span> Backend Offline';
+    document.getElementById('statusIcon').textContent = '🔴';
+  }
+}
+
+// Init
+render();
+fetchStats();
+setInterval(fetchStats, 30000); // Refresh stats every 30s
+</script>
+</body>
+</html>
